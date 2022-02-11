@@ -31,10 +31,10 @@ router.get('/',(req,res) => {
       }).catch(err => console.log(err));
 });
 
-// Get Single Order
+/* GET SINGLE ORDER.*/
 router.get('/:id', async (req, res) => {
-    let orderId = req.params.id;
-    console.log(orderId);
+    const orderId = req.params.id;
+
 
     database.table('orders_details as od')
         .join([
@@ -51,29 +51,24 @@ router.get('/:id', async (req, res) => {
                 on: 'u.id = o.user_id'
             }
         ])
-        .withFields(['o.id', 'p.title', 'p.description', 'p.price', 'p.image', 'od.quantity as quantityOrdered'])
+        .withFields(['o.id', 'p.title as name', 'p.description', 'p.price', 'u.username'])
         .filter({'o.id': orderId})
         .getAll()
         .then(orders => {
-            console.log(orders);
             if (orders.length > 0) {
-                res.json(orders);
+                res.status(200).json(orders);
             } else {
-                res.json({message: "No orders found"});
+                res.json({message: `No orders found with order Id ${orderId}`});
             }
-
-        }).catch(err => res.json(err));
+        }).catch(err => console.log(err));
 });
 
-// Place New Order
-router.post('/new', async (req, res) => {
-    // let userId = req.body.userId;
-    // let data = JSON.parse(req.body);
+/* PLACE A NEW ORDER.*/
+router.post('/new', (req, res) => {
     let {userId, products} = req.body;
-    console.log(userId);
-    console.log(products);
+    console.log(userId, products);
 
-    if (userId !== null && userId > 0) {
+    if (userId !== null && userId > 0 && !isNaN(userId)) {
         database.table('orders')
             .insert({
                 user_id: userId
@@ -83,13 +78,9 @@ router.post('/new', async (req, res) => {
                 products.forEach(async (p) => {
 
                     let data = await database.table('products').filter({id: p.id}).withFields(['quantity']).get();
-
-
-
                     let inCart = parseInt(p.incart);
 
                     // Deduct the number of pieces ordered from the quantity in database
-
                     if (data.quantity > 0) {
                         data.quantity = data.quantity - inCart;
 
@@ -101,7 +92,7 @@ router.post('/new', async (req, res) => {
                         data.quantity = 0;
                     }
 
-                    // Insert order details w.r.t the newly created order Id
+                    // Insert order details into the new generated id
                     database.table('orders_details')
                         .insert({
                             order_id: newOrderId,
@@ -118,7 +109,7 @@ router.post('/new', async (req, res) => {
                 });
 
             } else {
-                res.json({message: 'New order failed while adding order details', success: false});
+                res.json({message: 'Failed to add new order details', success: false});
             }
             res.json({
                 message: `Order successfully placed with order id ${newOrderId}`,
@@ -127,12 +118,17 @@ router.post('/new', async (req, res) => {
                 products: products
             })
         }).catch(err => res.json(err));
+    } else {
+        res.json({message: 'Failed to add new order', success: false});
     }
-
-    else {
-        res.json({message: 'New order failed', success: false});
-    }
-
 });
+
+    /*DUMMY PAYMENT GATEWAY ENDPOINT*/
+    router.post('/payment',(req,res) => {
+        setTimeout(() => {
+            res.status(200).json({success: true});
+        }, 3000);
+    });
+
 
 module.exports = router;
